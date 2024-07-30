@@ -1,0 +1,6 @@
+mods.MoonlightSonataHelper.name=Moonlight Sonata Helper
+
+# Rain
+entities.MoonlightSonataHelper/Rain.placements.name.default = Rain
+
+# entities.MoonlightSonataHelper/Rain.attributes.description.skew=The angle of the rain
