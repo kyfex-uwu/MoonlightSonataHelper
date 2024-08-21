@@ -1,8 +1,17 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework.Graphics;
+using Monocle;
+using MonoMod.Cil;
+using System;
+using System.IO;
 
 namespace Celeste.Mod.MoonlightSonataHelper;
 
 public class MoonlightSonataHelperModule : EverestModule {
+
+    public static VirtualRenderTarget RainDisplacement;
+    private static RainRenderer rainRenderer = new RainRenderer();
+
+    //--
     public static MoonlightSonataHelperModule Instance { get; private set; }
 
     public override Type SettingsType => typeof(MoonlightSonataHelperModuleSettings);
@@ -25,11 +34,47 @@ public class MoonlightSonataHelperModule : EverestModule {
 #endif
     }
 
-    public override void Load() {
+    //--
 
+    private static void CreateRainTarget(On.Celeste.GameplayBuffers.orig_Create orig) {
+        orig.Invoke();
+        RainDisplacement = GameplayBuffers.Create(320, 180);
+    }
+
+    private static void InsertRainRenderCall(ILContext il) {
+        var cursor = new ILCursor(il);
+
+        //IL_00b6: ldfld class Celeste.BackdropRenderer Celeste.Level::Foreground
+        //IL_00bb: ldarg.0
+        //IL_00bc: callvirt instance void Monocle.Renderer::Render(class Monocle.Scene)
+        cursor.GotoNext(MoveType.After, instr => 
+            instr.Previous!=null&&instr.Previous.Previous!=null&&
+            instr.Previous.Previous.MatchLdfld<Level>("Foreground") &&
+            instr.Previous.MatchLdarg0() &&
+            instr.MatchCallvirt<Renderer>("Render"));
+
+        cursor.EmitLdarg0();
+        cursor.EmitDelegate(RenderRain);
+    }
+    private static void RenderRain(Level level) {
+        RainRenderer.RenderRainDisplacement();
+    }
+    private static void AddRainRenderer(On.Celeste.Level.orig_ctor orig, Level self) {
+        orig.Invoke(self);
+        self.Add(rainRenderer);
+    }
+
+    public override void Load() {
+        On.Celeste.GameplayBuffers.Create += CreateRainTarget;
+        On.Celeste.Level.ctor += AddRainRenderer;
+
+        IL.Celeste.Level.Render += InsertRainRenderCall;
     }
 
     public override void Unload() {
+        On.Celeste.GameplayBuffers.Create -= CreateRainTarget;
+        On.Celeste.Level.ctor -= AddRainRenderer;
 
+        IL.Celeste.Level.Render -= InsertRainRenderCall;
     }
 }

@@ -2,16 +2,14 @@ local utils = require("utils")
 
 local rain = {
     name="MoonlightSonataHelper/Rain",
-    canResize = {true, true},
+    canResize = {true, false},
     fieldInformation = {
-        skew = {
-            default=0
-        }
+        
     },
     placements = {
         name="default",
         data = {
-            skew=0
+            width = 8
         }
     }
 }
@@ -21,12 +19,12 @@ function rain.draw(room, entity, viewport)
     
     love.graphics.setColor(43/255, 144/255, 227/255, 0.3)
     local width=entity.width or 0
-    local height = entity.height or 0
+    local height = room.height
     love.graphics.polygon("fill", {
         entity.x, entity.y,
         entity.x+width, entity.y,
-        entity.x+entity.skew*height+width, entity.y+height,
-        entity.x+entity.skew*height, entity.y+height
+        entity.x+--[[entity.skew*height+]]width, height,
+        entity.x+--[[entity.skew*height]]0, height
     })
 
     love.graphics.setColor(pr, pg, pb, pa)
@@ -37,7 +35,9 @@ function rain.depth(room, entity)
 end
 
 function rain.selection(room, entity)
-    return utils.rectangle(entity.x, entity.y, entity.w, entity.h) --todo
+    local skewW=--[[entity.skew*entity.height]]0
+    return utils.rectangle(math.min(entity.x,entity.x+skewW), entity.y, 
+        entity.width+math.abs(skewW), room.height-entity.y)
 end
 
 return rain
