@@ -4,55 +4,64 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Monocle;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
-[CustomEntity("MoonlightSonataHelper/Rain")]
+[CustomEntity("MoonlightSonataHelper/Rain"), Tracked(true)]
 class Rain : Entity {
-    public static readonly Texture2D rainTexture = VirtualContent.CreateTexture(Path.Combine("Graphics", "Atlases", "Gameplay",
-        "kyfexuwu", "MoonlightSonataHelper","rain")).Texture_Safe;
+
+    public readonly List<SkewCollider> sections = new List<SkewCollider>();
+    public float skew = 0;
+    public readonly Vector2 origPos;
+    public readonly float origWidth;
 
     public Rain(EntityData data, Vector2 offset)
             : this(data.Position + offset, data.Width) {
     }
-    private readonly SkewCollider skewCollider;
     public Rain(Vector2 position, float width)
         : base(position) {
-        this.skewCollider = new SkewCollider(0, width, 50);
-        base.Collider = this.skewCollider;
+        this.origPos = position;
+        this.origWidth = width;
+        base.Collider = new ColliderList();
+        this.addSection(0,0,width);
         base.Depth = -8500;
 
-        this.Add(new RainRenderHook(RenderRain));
         this.Add(new PlayerCollider(OnCollide));
+    }
+    public override void Added(Scene scene) {
+        base.Added(scene);
+        if (this.SceneAs<Level>().Tracker.GetEntity<RainController>() == null) {
+            this.Scene.Add(new RainController());
+        }
+    }
+    private void addSection(float x, float y, float w) {
+        var toAdd = new SkewCollider(this.skew, w, 200, x, y);
+        this.sections.Add(toAdd);
+        ((ColliderList)this.Collider).Add(toAdd);
     }
 
     private void OnCollide(Player player) {
         player.Die(new Vector2(0,0));
     }
 
-    private Matrix createSkew(Matrix origMatrix) {
-        Matrix translate1 = Matrix.CreateTranslation(-(this.Position.X + this.skewCollider.RealLeft), -this.Position.Y, 0);
-
-        Matrix skew = Matrix.Identity;
-        skew.M21 = this.skewCollider.Skew;
-
-        Matrix translate2 = Matrix.CreateTranslation(this.Position.X + this.skewCollider.RealLeft, this.Position.Y, 0);
-        return origMatrix * translate1 * skew * translate2;
+    public override void Update() {
+        base.Update();
+        //this.CollideDo<Entity>(onCollide);
     }
-    public void RenderRain(Matrix origMatrix) {
-        Draw.SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend,
-            SamplerState.PointWrap, DepthStencilState.Default,
-            RasterizerState.CullNone, null, this.createSkew(origMatrix));
-        Draw.SpriteBatch.Draw(rainTexture, this.Position + new Vector2(this.skewCollider.RealLeft, 0), 
-            new Rectangle(-(int)this.Position.X, -(int)(this.Scene.TimeActive*60*3+this.Position.Y), 
-                (int)Math.Round(this.skewCollider.RealWidth), (int)Math.Round(this.Height)), 
-            Color.White);
-        Draw.SpriteBatch.End();
+    private void onCollide(Entity other) {
+        //TODO
     }
-    private static readonly Color rainColor = new Color(28/255f, 36 / 255f, 41 / 255f, 0.07f);// /255f
-    public override void Render() {
-        for (int y = 0; y < this.Height; y++) {
-            Draw.Rect((int)Math.Ceiling(this.Position.X+this.skewCollider.RealLeft + this.skewCollider.Skew * y), 
-                    this.Top + y, this.skewCollider.RealWidth, 1, rainColor);
+
+    internal void updateSkew(float newSkew) {
+        this.skew = newSkew;
+        foreach (var section in this.sections) section.Skew = newSkew;
+    }
+
+    //--
+
+    private class RainChecker : Entity {
+        public RainChecker(Vector2 pos, Vector2 end) {
+            //this.Collider = 
         }
     }
 }
